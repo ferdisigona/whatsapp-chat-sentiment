@@ -1,8 +1,269 @@
 import React, { useState, useRef } from "react";
 import { analyzeSegments } from "../utils/analyzeSegments.js";
+import { analyzeConversation } from "../api/analysis.js";
+
+const STOPWORDS = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "that",
+  "have",
+  "this",
+  "from",
+  "your",
+  "what",
+  "when",
+  "were",
+  "will",
+  "about",
+  "there",
+  "would",
+  "could",
+  "should",
+  "cant",
+  "dont",
+  "doesnt",
+  "didnt",
+  "just",
+  "here",
+  "want",
+  "need",
+  "thanks",
+  "thank",
+  "please",
+  "been",
+  "they",
+  "them",
+  "then",
+  "have",
+  "into",
+  "because",
+  "like",
+  "really",
+  "some",
+  "were",
+  "theres",
+]);
+
+function parseDateString(dateStr) {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return null;
+  const [monthStr, dayStr, yearStr] = parts.map((part) => part.trim());
+  const month = Number.parseInt(monthStr, 10) - 1;
+  const day = Number.parseInt(dayStr, 10);
+  const year = yearStr.length === 2 ? Number.parseInt(`20${yearStr}`, 10) : Number.parseInt(yearStr, 10);
+  if (
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    Number.isNaN(year) ||
+    month < 0 ||
+    month > 11 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return null;
+  }
+  const parsed = new Date(year, month, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDuration(startDate, endDate) {
+  if (
+    !(startDate instanceof Date) ||
+    Number.isNaN(startDate?.getTime()) ||
+    !(endDate instanceof Date) ||
+    Number.isNaN(endDate?.getTime())
+  ) {
+    return "Unknown";
+  }
+
+  let from = startDate;
+  let to = endDate;
+  if (to < from) {
+    [from, to] = [to, from];
+  }
+
+  let years = to.getFullYear() - from.getFullYear();
+  let months = to.getMonth() - from.getMonth();
+  let days = to.getDate() - from.getDate();
+
+  if (days < 0) {
+    const previousMonth = new Date(to.getFullYear(), to.getMonth(), 0);
+    days += previousMonth.getDate();
+    months -= 1;
+  }
+
+  if (months < 0) {
+    months += 12;
+    years -= 1;
+  }
+
+  years = Math.max(years, 0);
+  months = Math.max(months, 0);
+  days = Math.max(days, 0);
+
+  const yearLabel = `${years} year${years === 1 ? "" : "s"}`;
+  const monthLabel = `${months} month${months === 1 ? "" : "s"}`;
+  const dayLabel = `${days} day${days === 1 ? "" : "s"}`;
+  return `${yearLabel}, ${monthLabel}, ${dayLabel}`;
+}
+
+function buildConversationText(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return "";
+  }
+
+  return messages
+    .filter(
+      (msg) =>
+        msg &&
+        typeof msg.text === "string" &&
+        msg.text.trim().length > 0
+    )
+    .map((msg) => {
+      const sender = typeof msg.sender === "string" && msg.sender.trim().length > 0
+        ? msg.sender.trim()
+        : "Unknown";
+      const text = msg.text.replace(/\s+/g, " ").trim();
+      return `${sender}: ${text}`;
+    })
+    .join("\n");
+}
+
+function fallbackTopicsFromMessages(messages, limit = 5) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return [];
+  }
+
+  const frequency = new Map();
+
+  messages.forEach((msg) => {
+    if (!msg || typeof msg.text !== "string") return;
+    const normalizedWords = msg.text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+
+    normalizedWords.forEach((word) => {
+      if (word.length < 4) return;
+      if (STOPWORDS.has(word)) return;
+      frequency.set(word, (frequency.get(word) || 0) + 1);
+    });
+  });
+
+  return [...frequency.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([word]) => word);
+}
+
+function aggregateTopicsFromSegments(segments, limit = 5) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return [];
+  }
+
+  const topicMap = new Map();
+
+  segments.forEach((segment) => {
+    if (!segment || !Array.isArray(segment.topics)) return;
+    segment.topics.forEach((topic) => {
+      if (typeof topic !== "string") return;
+      const cleaned = topic.trim();
+      if (!cleaned) return;
+      const key = cleaned.toLowerCase();
+      const current = topicMap.get(key);
+      if (current) {
+        current.count += 1;
+      } else {
+        topicMap.set(key, { label: cleaned, count: 1 });
+      }
+    });
+  });
+
+  return [...topicMap.values()]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, limit)
+    .map((entry) => entry.label);
+}
+
+function normalizeTopics(topics, limit = 5) {
+  if (!Array.isArray(topics)) {
+    return [];
+  }
+
+  return topics
+    .filter((topic) => typeof topic === "string")
+    .map((topic) => topic.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function generateInsightsSummary({ overall, segments, messages, firstDate, lastDate }) {
+  const startDate = parseDateString(firstDate);
+  const endDate = parseDateString(lastDate);
+  const timeRange = formatDuration(startDate, endDate);
+
+  const relationshipType = (() => {
+    const overallType = typeof overall?.relationshipType === "string"
+      ? overall.relationshipType.trim().toLowerCase()
+      : null;
+    if (overallType === "personal" || overallType === "professional") {
+      return overallType;
+    }
+
+    if (Array.isArray(segments) && segments.length > 0) {
+      const tally = segments.reduce(
+        (acc, seg) => {
+          const type = typeof seg?.relationshipType === "string"
+            ? seg.relationshipType.trim().toLowerCase()
+            : null;
+          if (type === "personal" || type === "professional") {
+            acc[type] = (acc[type] || 0) + 1;
+          }
+          return acc;
+        },
+        {}
+      );
+
+      const professionalCount = tally.professional || 0;
+      const personalCount = tally.personal || 0;
+
+      if (professionalCount || personalCount) {
+        return professionalCount > personalCount ? "professional" : "personal";
+      }
+    }
+
+    return "personal";
+  })();
+
+  let topics = normalizeTopics(overall?.topics);
+  if (!topics.length) {
+    topics = aggregateTopicsFromSegments(segments);
+  }
+  // if (!topics.length) {
+  //   topics = fallbackTopicsFromMessages(messages);
+  // }
+  if (!topics.length) {
+    topics = ["Not enough data"];
+  }
+
+  return {
+    timeRange,
+    relationshipType,
+    topics,
+    overview:
+      typeof overall?.summary === "string" && overall.summary.trim().length > 0
+        ? overall.summary.trim()
+        : null,
+  };
+}
 
 export default function InsightsView({ chat }) {
   const [segments, setSegments] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [avgTime, setAvgTime] = useState(null);
@@ -10,13 +271,27 @@ export default function InsightsView({ chat }) {
 
   async function handleAnalyze() {
     setSegments([]);
+    setSummary(null);
     setLoading(true);
     const startedAt = Date.now();
     startTimeRef.current = startedAt;
 
     try {
+      const overallPromise = (async () => {
+        try {
+          const conversationText = buildConversationText(chat?.messages);
+          if (!conversationText) {
+            return null;
+          }
+          return await analyzeConversation(conversationText);
+        } catch (overallErr) {
+          console.error("Overall analysis failed:", overallErr);
+          return null;
+        }
+      })();
+
       // 🧠 1. Run main per-segment analysis
-      const results = await analyzeSegments(chat.messages, (result, current, total) => {
+      const segmentsPromise = analyzeSegments(chat.messages, (result, current, total) => {
         if (result) {
           setSegments((prev) => [...prev, result]);
         }
@@ -29,7 +304,21 @@ export default function InsightsView({ chat }) {
         }
       });
 
+      const [overall, results] = await Promise.all([overallPromise, segmentsPromise]);
+
       setSegments(results);
+
+      if (chat) {
+        setSummary(
+          generateInsightsSummary({
+            overall,
+            segments: results,
+            messages: Array.isArray(chat?.messages) ? chat.messages : [],
+            firstDate: chat?.firstDate || null,
+            lastDate: chat?.lastDate || null,
+          })
+        );
+      }
 
     } catch (err) {
       console.error("Analysis failed:", err);
@@ -93,6 +382,37 @@ export default function InsightsView({ chat }) {
             {pct}% complete
             {avgTime && <> — est. {formatRemaining(remainingSeconds)} remaining</>}
           </p>
+        </div>
+      )}
+
+      {summary && (
+        <div
+          style={{
+            marginTop: "1.5rem",
+            padding: "1rem",
+            borderRadius: "10px",
+            background: "#f7f9fc",
+            border: "1px solid #e1e8f5",
+          }}
+        >
+          <h3 style={{ marginTop: 0, marginBottom: "0.75rem" }}>Summary</h3>
+          {summary.overview && (
+            <p style={{ margin: "0 0 0.75rem 0", color: "#333" }}>{summary.overview}</p>
+          )}
+          <p style={{ margin: "0 0 0.5rem 0" }}>
+            <strong>Time Range:</strong> {summary.timeRange}
+          </p>
+          <p style={{ margin: "0 0 0.75rem 0" }}>
+            <strong>Relationship Type:</strong> {summary.relationshipType}
+          </p>
+          <div>
+            <strong>Top Topics:</strong>
+            <ul style={{ marginTop: "0.5rem", paddingLeft: "1.25rem", marginBottom: 0 }}>
+              {summary.topics.map((topic) => (
+                <li key={topic}>{topic}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
