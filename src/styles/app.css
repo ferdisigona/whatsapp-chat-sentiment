@@ -4,7 +4,6 @@ nav button { margin: 0 0.5rem; }
 .chat-view { padding: 1rem; max-width: 600px; margin: auto; }
 .msg { margin-bottom: .5rem; }
 .msg.me { text-align: right; }
-.agent-reply { background: #eee; padding: 1rem; border-radius: .5rem; margin-top: 1rem; }
 progress {
     height: 12px;
     border-radius: 6px;
