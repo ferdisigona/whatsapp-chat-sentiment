@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
 app.get("/", (req, res) => {
-  res.send("Tandem backend running (OpenAI only).");
+  res.send("Whatsapp Chat Sentiment backend running (OpenAI only).");
 });
 
 app.use(analyzeRoutes);

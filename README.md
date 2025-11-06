@@ -1,6 +1,6 @@
-# Tandem Sandbox
+# Whatsapp Chat Sentiment
 
-Tandem Sandbox is a React + Express playground for exploring WhatsApp chat analytics. Upload an exported chat log to:
+Whatsapp Chat Sentiment is a React + Express playground for exploring WhatsApp chat analytics. Upload an exported chat log to:
 
 - Parse messages and segment them into sessions based on timing gaps
 - Summarise each session with OpenAI
