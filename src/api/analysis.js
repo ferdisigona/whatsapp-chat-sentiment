@@ -39,7 +39,3 @@ export function analyzeConversationBatch(conversationText) {
   return request("/analyze-batch", { body: { conversationText } });
 }
 
-export function clusterAnalyzedSegments(segments) {
-  return request("/cluster-segments", { body: { segments } });
-}
-

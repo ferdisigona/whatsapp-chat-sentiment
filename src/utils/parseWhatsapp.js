@@ -43,6 +43,10 @@ export default function parseWhatsapp(text, yourNameInput = "") {
 
   // Participants
   const participants = [...new Set(messages.map((m) => m.sender))];
+  const normalizedParticipants = participants.map((p) => ({
+    original: p,
+    normalized: normalizeName(p),
+  }));
 
   // Sort by date to compute range
   const toDate = (d) => {
@@ -58,13 +62,29 @@ export default function parseWhatsapp(text, yourNameInput = "") {
   const lastDate = sorted[sorted.length - 1].date;
 
   const normalizedYourName = normalizeName(yourNameInput);
-  const yourParticipant = participants.find(
-    (p) => normalizeName(p) === normalizedYourName
-  );
+  const findParticipantMatch = () => {
+    if (!normalizedYourName) return null;
 
-  const others = participants.filter(
-    (p) => normalizeName(p) !== normalizedYourName
-  );
+    const exact = normalizedParticipants.find(
+      (entry) => entry.normalized === normalizedYourName
+    );
+    if (exact) return exact.original;
+
+    const partial = normalizedParticipants.find(
+      (entry) =>
+        entry.normalized.includes(normalizedYourName) ||
+        normalizedYourName.includes(entry.normalized)
+    );
+    if (partial) return partial.original;
+
+    return null;
+  };
+
+  const yourParticipant = findParticipantMatch();
+
+  const others = yourParticipant
+    ? participants.filter((p) => p !== yourParticipant)
+    : participants.filter((p) => normalizeName(p) !== normalizedYourName);
 
   let chatName = "Group Chat";
   if (participants.length === 2) {

@@ -4,7 +4,6 @@ import cors from "cors";
 
 import config from "./config.js";
 import analyzeRoutes from "./routes/analyze.js";
-import clusterRoutes from "./routes/clusterSegments.js";
 
 const app = express();
 app.use(cors());
@@ -15,7 +14,6 @@ app.get("/", (req, res) => {
 });
 
 app.use(analyzeRoutes);
-app.use(clusterRoutes);
 
 app.listen(config.port, () =>
   console.log(`Backend running on port ${config.port} (OpenAI only)`)

@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { analyzeSegments } from "../utils/analyzeSegments.js";
-import { clusterAnalyzedSegments } from "../api/analysis.js";
 
 export default function InsightsView({ chat }) {
   const [segments, setSegments] = useState([]);
-  const [clusters, setClusters] = useState([]); // 🆕 for semantic grouping
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [avgTime, setAvgTime] = useState(null);
@@ -12,7 +10,6 @@ export default function InsightsView({ chat }) {
 
   async function handleAnalyze() {
     setSegments([]);
-    setClusters([]);
     setLoading(true);
     setStartTime(Date.now());
 
@@ -31,15 +28,9 @@ export default function InsightsView({ chat }) {
 
       setSegments(results);
 
-      // 🧩 2. Send analyzed segments to backend for semantic clustering
-      console.log("Sending segments to /cluster-segments for grouping...");
-      const data = await clusterAnalyzedSegments(results);
-      console.log("Received clusters:", data);
-      if (data.clusters) setClusters(data.clusters);
-
     } catch (err) {
-      console.error("Analysis or clustering failed:", err);
-      alert("Something went wrong during analysis or clustering. Check console for details.");
+      console.error("Analysis failed:", err);
+      alert("Something went wrong during analysis. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -125,35 +116,7 @@ export default function InsightsView({ chat }) {
         </div>
       )}
 
-      {/* 🧠 Render semantic themes (clusters) */}
-      {clusters.length > 0 && (
-        <div style={{ marginTop: "2rem" }}>
-          <h3>Semantic Themes</h3>
-          {clusters.map((c, i) => (
-            <div
-              key={i}
-              style={{
-                marginBottom: "1rem",
-                padding: "1rem",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                background: "#fafafa",
-              }}
-            >
-              <strong>{c.name}</strong>
-              <p style={{ fontSize: "0.9rem", color: "#555" }}>
-                Segments: {c.segmentIds.join(", ")}
-              </p>
-              <p style={{ fontSize: "0.85rem", color: "#777" }}>
-                Mood counts:{" "}
-                {Object.entries(c.moodCounts || {})
-                  .map(([mood, count]) => `${mood}: ${count}`)
-                  .join(", ")}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Semantic themes removed */}
     </div>
   );
 }

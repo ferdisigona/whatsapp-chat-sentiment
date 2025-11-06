@@ -85,8 +85,7 @@ npm run dev
 
 1. Export a WhatsApp chat (text format) and upload it via the UI.
 2. The frontend parses the chat (`parseWhatsapp`) and dispatches segments to the backend.
-3. The backend summarises each segment, then clusters summaries using embeddings.
-4. Insights and clusters render live in the `InsightsView` component.
+3. The backend summarises each segment and streams insights back to the UI, which renders them in `InsightsView`.
 
 > **Privacy tip:** store raw chat exports in a local `data/` directory (ignored by git) and avoid committing personal transcripts to the repository.
 
@@ -109,7 +108,7 @@ The repository itself is released under the MIT License (see `LICENSE`). Ensure 
 
 - **Linting**: Run `npm run lint` in the project root to apply ESLint rules across the frontend. Backend linting is not yet configured.
 - **Tests**: There is no automated test suite today. If you plan to accept contributions, consider adding unit tests for the parsing utilities and integration tests around the Express routes (with mocked OpenAI calls).
-- **Manual verification**: Before publishing, manually exercise the upload flow, segment analysis, and clustering endpoints with non-sensitive sample chats.
+- **Manual verification**: Before publishing, manually exercise the upload flow and segment analysis with non-sensitive sample chats.
 
 ## Contributing
 

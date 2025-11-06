@@ -1,11 +1,54 @@
 import React from "react";
 
 export default function ChatView({ chat }) {
-  const { chatName, firstDate, lastDate, messages, yourName, enteredName, participants } = chat;
+  const {
+    chatName,
+    firstDate,
+    lastDate,
+    messages,
+    yourName,
+    enteredName,
+    participants,
+  } = chat;
 
   const normalize = (name) => (name || "").trim().toLowerCase();
-  const yourDisplayName =
-    yourName || enteredName || (participants && participants[0]) || "";
+  const participantList = participants || [];
+  const normalizedParticipants = participantList.map((p) => ({
+    original: p,
+    normalized: normalize(p),
+  }));
+  const normalizedEntered = normalize(enteredName);
+  const normalizedStored = normalize(yourName);
+
+  let yourDisplayName = "";
+
+  const matchNormalized = (target) =>
+    normalizedParticipants.find((entry) => entry.normalized === target)?.original;
+
+  const matchPartial = (target) =>
+    normalizedParticipants.find(
+      (entry) =>
+        entry.normalized.includes(target) || target.includes(entry.normalized)
+    )?.original;
+
+  if (yourName && participantList.includes(yourName)) {
+    yourDisplayName = yourName;
+  } else if (normalizedStored) {
+    yourDisplayName =
+      matchNormalized(normalizedStored) || matchPartial(normalizedStored) || "";
+  }
+
+  if (!yourDisplayName && normalizedEntered) {
+    yourDisplayName =
+      matchNormalized(normalizedEntered) ||
+      matchPartial(normalizedEntered) ||
+      enteredName || "";
+  }
+
+  if (!yourDisplayName && participantList.length > 0) {
+    yourDisplayName = participantList[0];
+  }
+
   const normalizedYou = normalize(yourDisplayName);
 
   return (
