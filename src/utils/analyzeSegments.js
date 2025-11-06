@@ -47,13 +47,7 @@ export async function analyzeSegments(messages, onProgress) {
 
     if (!conversationText || conversationText.length < 20) {
       console.warn(`Skipping short/empty segment ${idx + 1}`);
-      const result = {
-        ...baseResult,
-        summary: "Empty or trivial conversation.",
-        mood: "neutral",
-      };
-      results[idx] = result;
-      if (onProgress) onProgress(result, idx + 1, total);
+      if (onProgress) onProgress(null, idx + 1, total);
       return;
     }
 

@@ -13,7 +13,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <h1>Whatsapp Chat Sentiment 🧠</h1>
+        <h1>Whatsapp Chat Sentiment 🤓</h1>
         <nav>
           <button onClick={() => setActiveView('chat')}>Chat</button>
           <button onClick={() => setActiveView('insights')}>Insights</button>

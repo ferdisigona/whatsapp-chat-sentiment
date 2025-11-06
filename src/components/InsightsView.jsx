@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { analyzeSegments } from "../utils/analyzeSegments.js";
 
 export default function InsightsView({ chat }) {
@@ -6,22 +6,25 @@ export default function InsightsView({ chat }) {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loading, setLoading] = useState(false);
   const [avgTime, setAvgTime] = useState(null);
-  const [startTime, setStartTime] = useState(null);
+  const startTimeRef = useRef(null);
 
   async function handleAnalyze() {
     setSegments([]);
     setLoading(true);
-    setStartTime(Date.now());
+    const startedAt = Date.now();
+    startTimeRef.current = startedAt;
 
     try {
       // 🧠 1. Run main per-segment analysis
       const results = await analyzeSegments(chat.messages, (result, current, total) => {
-        setSegments((prev) => [...prev, result]);
+        if (result) {
+          setSegments((prev) => [...prev, result]);
+        }
         setProgress({ current, total });
 
         // Update average per-segment timing for remaining estimate
-        if (current > 0) {
-          const elapsed = (Date.now() - startTime) / 1000;
+        if (current > 0 && startTimeRef.current) {
+          const elapsed = (Date.now() - startTimeRef.current) / 1000;
           setAvgTime(elapsed / current);
         }
       });
@@ -33,6 +36,7 @@ export default function InsightsView({ chat }) {
       alert("Something went wrong during analysis. Check console for details.");
     } finally {
       setLoading(false);
+      startTimeRef.current = null;
     }
   }
 
@@ -41,6 +45,15 @@ export default function InsightsView({ chat }) {
     avgTime && progress.total
       ? Math.max(0, (progress.total - progress.current) * avgTime)
       : 0;
+
+  const formatRemaining = (seconds) => {
+    const total = Math.max(0, Math.round(seconds));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    const minPart = mins > 0 ? `${mins} min${mins === 1 ? "" : "s"}` : null;
+    const secPart = `${secs} sec${secs === 1 ? "" : "s"}`;
+    return minPart ? `${minPart}, ${secPart}` : secPart;
+  };
 
   const pct =
     progress.total > 0
@@ -78,7 +91,7 @@ export default function InsightsView({ chat }) {
           />
           <p style={{ fontSize: "0.9rem", color: "#666" }}>
             {pct}% complete
-            {avgTime && <> — est. {remainingSeconds.toFixed(0)}s remaining</>}
+            {avgTime && <> — est. {formatRemaining(remainingSeconds)} remaining</>}
           </p>
         </div>
       )}
