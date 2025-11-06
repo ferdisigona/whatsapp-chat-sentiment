@@ -1,7 +1,12 @@
 import React from "react";
 
 export default function ChatView({ chat }) {
-  const { chatName, firstDate, lastDate, messages } = chat;
+  const { chatName, firstDate, lastDate, messages, yourName, enteredName, participants } = chat;
+
+  const normalize = (name) => (name || "").trim().toLowerCase();
+  const yourDisplayName =
+    yourName || enteredName || (participants && participants[0]) || "";
+  const normalizedYou = normalize(yourDisplayName);
 
   return (
     <div className="chat-view" style={{ maxWidth: 650, margin: "0 auto" }}>
@@ -22,33 +27,34 @@ export default function ChatView({ chat }) {
       </div>
 
       <div className="chat-messages">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`msg ${m.sender === chat.participants[0] ? "me" : "them"}`}
-            style={{
-              textAlign:
-                m.sender === chat.participants[0] ? "right" : "left",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <p
+        {messages.map((m, i) => {
+          const isMe = normalize(m.sender) === normalizedYou;
+          return (
+            <div
+              key={i}
+              className={`msg ${isMe ? "me" : "them"}`}
               style={{
-                display: "inline-block",
-                background:
-                  m.sender === chat.participants[0] ? "#dcf8c6" : "#fff",
-                padding: "0.5rem 0.8rem",
-                borderRadius: "10px",
-                maxWidth: "75%",
+                textAlign: isMe ? "right" : "left",
+                marginBottom: "0.5rem",
               }}
             >
-              {m.text}
-            </p>
-            <div style={{ fontSize: "0.7rem", color: "#999" }}>
-              {m.sender}, {m.date} {m.time}
+              <p
+                style={{
+                  display: "inline-block",
+                  background: isMe ? "#dcf8c6" : "#fff",
+                  padding: "0.5rem 0.8rem",
+                  borderRadius: "10px",
+                  maxWidth: "75%",
+                }}
+              >
+                {m.text}
+              </p>
+              <div style={{ fontSize: "0.7rem", color: "#999" }}>
+                {m.sender}, {m.date} {m.time}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

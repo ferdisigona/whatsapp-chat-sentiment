@@ -1,7 +1,9 @@
 // utils/parseWhatsapp.js
 // Extended WhatsApp chat parser with metadata extraction
 
-export default function parseWhatsapp(text) {
+export default function parseWhatsapp(text, yourNameInput = "") {
+  const normalizeName = (name) => (name || "").trim().toLowerCase();
+
   const lines = text.split(/\r?\n/).filter(Boolean);
   const messages = [];
 
@@ -28,7 +30,16 @@ export default function parseWhatsapp(text) {
     }
   }
 
-  if (messages.length === 0) return { participants: [], messages: [] };
+  if (messages.length === 0)
+    return {
+      participants: [],
+      messages: [],
+      chatName: "Group Chat",
+      firstDate: null,
+      lastDate: null,
+      yourName: null,
+      enteredName: yourNameInput.trim() || null,
+    };
 
   // Participants
   const participants = [...new Set(messages.map((m) => m.sender))];
@@ -46,12 +57,29 @@ export default function parseWhatsapp(text) {
   const firstDate = sorted[0].date;
   const lastDate = sorted[sorted.length - 1].date;
 
-  // Guess chat name
+  const normalizedYourName = normalizeName(yourNameInput);
+  const yourParticipant = participants.find(
+    (p) => normalizeName(p) === normalizedYourName
+  );
+
+  const others = participants.filter(
+    (p) => normalizeName(p) !== normalizedYourName
+  );
+
   let chatName = "Group Chat";
   if (participants.length === 2) {
-    // Assume you are participant[0] — show the other person
-    chatName = participants[1];
+    chatName = others[0] || participants.find((p) => p !== yourParticipant) || chatName;
+  } else if (yourParticipant && others.length) {
+    chatName = others.join(", ");
   }
 
-  return { participants, messages, chatName, firstDate, lastDate };
+  return {
+    participants,
+    messages,
+    chatName,
+    firstDate,
+    lastDate,
+    yourName: yourParticipant || null,
+    enteredName: yourNameInput.trim() || null,
+  };
 }
